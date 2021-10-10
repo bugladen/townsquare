@@ -30,7 +30,7 @@ class PutIntoPlayCardAction extends BaseAbility {
 
         return (
             source.getType() !== 'action' &&
-            player.isCardInPlayableLocation(source, this.playType) &&
+            (this.playType !== 'shoppin' || player.isCardInPlayableLocation(source, this.playType)) &&
             player.canPutIntoPlay(source, { playingType: this.playType, context })
         );
     }

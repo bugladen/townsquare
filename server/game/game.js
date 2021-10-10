@@ -914,8 +914,12 @@ class Game extends EventEmitter {
             game: this, 
             source: source, 
             player: player
-        });        
-        this.queueStep(new AbilityResolver(this, ability, abilityContext));
+        });
+        if(ability.meetsRequirements(abilityContext) && 
+            ability.canPayCosts(abilityContext) && 
+            ability.canResolveTargets(abilityContext)) {
+            this.queueStep(new AbilityResolver(this, ability, abilityContext));
+        }
     }
 
     openAbilityWindow(properties) {
