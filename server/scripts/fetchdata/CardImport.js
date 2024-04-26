@@ -4,16 +4,19 @@ const fs = require('fs');
 const mkdirp = require('mkdirp');
 const path = require('path');
 
-const CardService = require('../../services/CardService.js');
-
 class CardImport {
-    constructor(db, dataSource, imageSource, imageDir, isPt) {
+    constructor(db, dataSource, imageSource, cardService, options) {
         this.db = db;
         this.dataSource = dataSource;
         this.imageSource = imageSource;
-        this.imageDir = imageDir;
-        this.cardService = new CardService(db);
-        this.isPt = isPt;
+        this.cardService = cardService;
+        this.imageDir = options['image-dir'];
+        this.isPt = options['is-pt'];
+        this.replaceCards = options['replace-cards'];
+        this.replacePacks = options['replace-packs'];
+        this.onlyPack = options['only-pack'];
+        this.exceptPack = options['except-pack'];        
+        this.onlyImages = options['only-images'];
     }
 
     async import() {
@@ -34,11 +37,19 @@ class CardImport {
             cards = await this.dataSource.getCards();
         }
 
-        await this.cardService.replaceCards(cards);
-
         console.info(cards.length + ' cards fetched');
 
-        await this.fetchImages(cards);
+        if (!this.onlyImages) {
+            if (this.replaceCards) {
+                await this.cardService.replaceCards(cards);
+            } else {
+                await this.cardService.addCards(cards);
+            }
+        }
+
+        if (!this.noImages) {
+            await this.fetchImages(cards);
+        }
     }
 
     fetchImages(cards) {
@@ -67,7 +78,11 @@ class CardImport {
             packs = await this.dataSource.getPacks();
         }        
 
-        await this.cardService.replacePacks(packs);
+        if (this.replacePacks) {
+            await this.cardService.replacePacks(packs);
+        } else {
+            await this.cardService.addPacks(packs);
+        }
 
         console.info(packs.length + ' packs fetched');
     }
