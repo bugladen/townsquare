@@ -16,9 +16,17 @@ class CardService {
             .then(() => this.cards.insert(cards));
     }
 
-    replacePacks(cards) {
+    addCards(cards) {
+        return this.cards.insert(cards);
+    }
+
+    replacePacks(packs) {
         return this.packs.remove({})
-            .then(() => this.packs.insert(cards));
+            .then(() => this.packs.insert(packs));
+    }
+
+    addPacks(packs) {
+        return this.packs.insert(packs);
     }
 
     getAllCards() {

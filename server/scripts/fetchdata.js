@@ -5,8 +5,10 @@ const path = require('path');
 
 const CardImport = require('./fetchdata/CardImport.js');
 const DtDbImageSource = require('./fetchdata/DtDbImageSource.js');
+const PTDbImageSource = require('./fetchdata/PTDbImageSource.js');
 const JsonCardSource = require('./fetchdata/JsonCardSource.js');
 const NoImageSource = require('./fetchdata/NoImageSource.js');
+const CardService = require('../services/CardService.js');
 
 const optionsDefinition = [
     { name: 'card-source', type: String, defaultValue: 'json' },
@@ -14,7 +16,14 @@ const optionsDefinition = [
     { name: 'image-source', type: String, defaultValue: 'dtdb' },
     { name: 'image-dir', type: String, defaultValue: path.join(__dirname, '..', '..', 'public', 'img', 'cards') },
     { name: 'no-images', type: Boolean, defaultValue: false },
-    { name: 'is-pt', type: Boolean, defaultValue: false }
+    { name: 'only-images', type: Boolean, defaultValue: false },
+    { name: 'is-pt', type: Boolean, defaultValue: false },
+    { name: 'replace-cards', type: Boolean, defaultValue: true },
+    { name: 'replace-packs', type: Boolean, defaultValue: true },
+    { name: 'only-pack', type: String, defaultValue: null },
+    { name: 'except-pack', type: String, defaultValue: null },
+    { name: 'username', type: String, defaultValue: null },
+    { name: 'password', type: String, defaultValue: null },
 ];
 
 function createDataSource(options) {
@@ -35,7 +44,9 @@ function createImageSource(options) {
         case 'none':
             return new NoImageSource();
         case 'dtdb':
-            return new DtDbImageSource();
+            return new DtDbImageSource(options);
+        case 'ptdb':
+            return new PTDbImageSource(options);
     }
 
     throw new Error(`Unknown image source '${options['image-source']}'`);
@@ -43,10 +54,21 @@ function createImageSource(options) {
 
 let options = commandLineArgs(optionsDefinition);
 
+if (options['image-source'] === 'ptdb' && (!options.username || !options.password)) {
+	console.error('User and password required for ptdb environment');
+	process.exit(1);
+}
+
+if (options['only-pack'] && options['except-pack']) {
+    console.error('Cannot specify both only-pack and except-pack');
+    process.exit(1);
+}
+
 let db = monk('mongodb://127.0.0.1:27017/townsquare');
 let dataSource = createDataSource(options);
 let imageSource = createImageSource(options);
-let cardImport = new CardImport(db, dataSource, imageSource, options['image-dir'], options['is-pt']);
+let cardService = new CardService(db);
+let cardImport = new CardImport(db, dataSource, imageSource, cardService, options);
 
 cardImport.import();
 
