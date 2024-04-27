@@ -1,3 +1,4 @@
+const { BountyType } = require('../Constants');
 const GameAction = require('./GameAction');
 
 class AddBounty extends GameAction {
@@ -9,9 +10,9 @@ class AddBounty extends GameAction {
         return ['play area'].includes(card.location) && card.getType() === 'dude';
     }
 
-    createEvent({ card, amount = 1 }) {
-        return this.event('onCardBountyAdded', { card, bounty: amount }, event => {
-            event.card.increaseBounty(event.bounty);
+    createEvent({ card, amount = 1, maxAmount = 999, reason = BountyType.default }) {
+        return this.event('onCardBountyAdded', { card, bounty: amount, maxAmount, reason }, event => {
+            event.card.increaseBounty(event.bounty, event.maxAmount);
         });
     }
 }

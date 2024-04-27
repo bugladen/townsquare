@@ -1,17 +1,18 @@
+const PlayingTypes = require('../Constants/PlayingTypes');
 const PutIntoPlayCardAction = require('./PutIntoPlayCardAction');
 const ShoppinCardAction = require('./ShoppinCardAction');
 
 var StandardActions = {};
 
 var defaultProperties = {
-    playType: 'ability', 
+    playType: PlayingTypes.Ability, 
     abilitySourceType: 'card', 
     targetLocationUuid: ''
 };
 
 StandardActions.shoppin = function(card, targetLocationUuid) {
     const targetProperties = ['goods', 'spell'].includes(card.getType()) ? 
-        attTargetProperties(card, targetLocationUuid, 'shoppin') : undefined;
+        attTargetProperties(card, targetLocationUuid, PlayingTypes.Shoppin) : undefined;
     return new ShoppinCardAction(targetLocationUuid, targetProperties);
 };
 
@@ -20,7 +21,7 @@ StandardActions.putIntoPlay = function(properties, callback) {
 };
 
 StandardActions.putIntoPlayAtLocation = function(targetLocationUuid, callback) {
-    return new PutIntoPlayCardAction(Object.assign(defaultProperties, { target: targetLocationUuid }), callback);
+    return new PutIntoPlayCardAction(Object.assign(defaultProperties, { targetLocationUuid }), callback);
 };
 
 StandardActions.putIntoPlayWithReduction = function(reduceAmount, minimum, callback) {

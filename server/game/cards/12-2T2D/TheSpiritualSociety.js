@@ -5,7 +5,7 @@ class TheSpiritualSociety extends OutfitCard {
     setupCardAbilities(ability) {
         this.traitReaction({
             when: {
-                onAfterHandRefill: event => event.player === this.owner &&
+                onAfterHandRefill: event => this.owner.equals(event.player) &&
                     this.isControllingTownSquare()
             },
             handler: context => {
@@ -36,7 +36,7 @@ class TheSpiritualSociety extends OutfitCard {
                     cardType: 'dude',
                     gameAction: 'boot',
                     onSelect: (player, card) => {
-                        this.game.resolveGameAction(GameActions.bootCard({ card }, context)).thenExecute(() => {
+                        this.game.resolveGameAction(GameActions.bootCard({ card }), context).thenExecute(() => {
                             this.game.addMessage('{0} uses {1} and boots {2} to boot {3}', player, this, context.costs.boot, card);
                         });                     
                         return true;
@@ -51,7 +51,7 @@ class TheSpiritualSociety extends OutfitCard {
         let myInfluence = 0;
         let oppInfluence = 0;
         this.game.townsquare.getDudes().forEach(dude => {
-            if(dude.controller === this.owner) {
+            if(this.owner.equals(dude.controller)) {
                 myInfluence += dude.influence;
             } else {
                 oppInfluence += dude.influence;

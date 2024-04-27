@@ -1,3 +1,4 @@
+const PlayingTypes = require('../../Constants/PlayingTypes.js');
 const UiPrompt = require('../uiprompt.js');
 
 class TradingPrompt extends UiPrompt {
@@ -39,8 +40,9 @@ class TradingPrompt extends UiPrompt {
         this.game.promptForSelect(this.player, {
             promptTitle: 'Tradin\' action',
             activePromptTitle: 'Select dude to receive goods',
-            cardCondition: card => card.controller === this.player && 
+            cardCondition: card => card.controller.equals(this.player) && 
                 card.getType() === 'dude' &&
+                !card.booted &&
                 card.gamelocation === this.fromDudeCard.gamelocation && 
                 card !== this.fromDudeCard,
             onSelect: (player, toDudeCard) => {
@@ -88,7 +90,7 @@ class TradingPrompt extends UiPrompt {
                     activePromptTitle: 'Select attachment(s) to trade',
                     multiSelect: true,
                     numCards: 0,
-                    cardCondition: card => card.controller === player && dude.canTradeGoods(card),
+                    cardCondition: card => card.controller.equals(player) && dude.canTradeGoods(card),
                     onSelect: (player, cards) => {
                         this.attachments = cards;
                         this.performTrading();
@@ -105,7 +107,7 @@ class TradingPrompt extends UiPrompt {
 
     attachAttachments(attachments, fromDude, toDude, actionWord) {
         attachments.forEach(fromAttachment => {
-            if(this.player.attach(fromAttachment, toDude, 'trading')) {
+            if(this.player.attach(fromAttachment, toDude, PlayingTypes.Trading)) {
                 this.game.addMessage('{0} {1} {2} from {3} to {4}', this.player, actionWord, fromAttachment, fromDude, toDude);
             }
         });

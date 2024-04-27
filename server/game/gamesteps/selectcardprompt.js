@@ -54,6 +54,15 @@ class SelectCardPrompt extends UiPrompt {
 
         this.numPlayers = this.game.getNumberOfPlayers();
         this.choosingPlayer = choosingPlayer;
+        // TODO M2 Solo - temporary code
+        if(this.choosingPlayer === this.game.automaton) {
+            this.forSolo = true;
+            this.choosingPlayer = this.choosingPlayer.getOpponent();
+            this.promptInfo = { type: 'info', message: this.game.automaton.name };
+        // *****
+        } else {
+            this.promptInfo = properties.promptInfo || {};
+        }
         if(properties.source && !properties.waitingPromptTitle) {
             properties.waitingPromptTitle = 'Waiting for opponent to use ' + properties.source.title;
         }
@@ -121,7 +130,7 @@ class SelectCardPrompt extends UiPrompt {
         }
     }
 
-    activeCondition(player) {
+    activeCondition(player) {   
         return player === this.choosingPlayer;
     }
 
@@ -134,7 +143,8 @@ class SelectCardPrompt extends UiPrompt {
                 { text: this.properties.doneButtonText || 'Done', arg: 'done' }
             ]),
             controls: this.properties.additionalControls,
-            promptTitle: this.properties.source ? this.properties.source.title : this.promptTitle
+            promptTitle: this.properties.source ? this.properties.source.title : this.promptTitle,
+            promptInfo: this.promptInfo
         };
     }
 
@@ -203,7 +213,7 @@ class SelectCardPrompt extends UiPrompt {
         this.choosingPlayer.setSelectedCards(this.selectedCards);
 
         if(this.properties.onCardToggle) {
-            this.properties.onCardToggle(this.choosingPlayer, card);
+            this.properties.onCardToggle(this.forSolo ? this.game.automaton : this.choosingPlayer, card);
         }
 
         return true;
@@ -211,7 +221,7 @@ class SelectCardPrompt extends UiPrompt {
 
     fireOnSelect() {
         let cardParam = this.selector.formatSelectParam(this.selectedCards);
-        if(this.properties.onSelect(this.choosingPlayer, cardParam)) {
+        if(this.properties.onSelect(this.forSolo ? this.game.automaton : this.choosingPlayer, cardParam)) {
             this.complete();
         } else {
             this.clearSelection();
@@ -221,6 +231,10 @@ class SelectCardPrompt extends UiPrompt {
     onMenuCommand(player, arg) {
         if(player !== this.choosingPlayer) {
             return false;
+        }
+
+        if(this.forSolo) {
+            player = this.game.automaton;
         }
 
         if(arg !== 'done') {
@@ -233,8 +247,9 @@ class SelectCardPrompt extends UiPrompt {
         if(this.selector.hasEnoughSelected(this.selectedCards, this.numPlayers)) {
             this.fireOnSelect();
         } else if(this.selectedCards.length === 0) {
-            this.properties.onCancel(player);
-            this.complete();
+            if(this.properties.onCancel(player) !== false) {
+                this.complete();
+            }
         }
     }
 

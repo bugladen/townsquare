@@ -1,4 +1,5 @@
 const AbilityDsl = require('./abilitydsl.js');
+const PlayingTypes = require('./Constants/PlayingTypes.js');
 const HeartsCard = require('./heartscard.js');
 
 class SpellCard extends HeartsCard {
@@ -19,19 +20,18 @@ class SpellCard extends HeartsCard {
             return false;
         }
         if(card.getType() === 'dude') {
-            if(card.hasKeyword('Huckster') && this.isHex()) {
-                return true;
-            } else if(card.hasKeyword('Blessed') && this.isMiracle()) {
-                return true;
-            } else if(card.hasKeyword('Shaman') && this.isSpirit()) {
-                return true;
+            if(this.isTotem()) {
+                return card.canAttachTotems(this);
             }
+            return card.canPerformSkillOn(this);
         } else if(card.isLocationCard() && this.isTotem()) {
-            if(['validityCheck', 'chatcommand'].includes(playingType)) {
+            if([PlayingTypes.Ability, PlayingTypes.ValidityCheck, PlayingTypes.Chatcommand].includes(playingType)) {
                 return true;
             }
-            return card.controller === this.controller && 
-                this.game.getDudesAtLocation(card.gamelocation).find(dude => dude.hasKeyword('shaman') && !dude.booted);
+            return card.controller.equals(this.controller) && 
+                this.game.getDudesAtLocation(card.gamelocation).find(dude => 
+                    dude.canPerformSkillOn(this) && !dude.booted
+                );
         }
         return false;
     }

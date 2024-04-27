@@ -3,7 +3,7 @@ const LegendCard = require('../../legendcard.js');
 class JasperStone extends LegendCard {
     setupCardAbilities(ability) {
         this.persistentEffect({
-            condition: () => this.game.shootout && !this.game.shootout.shootoutLocation.isHome(this.owner),
+            condition: () => !this.game.getShootoutGameLocation().isHome(this.owner),
             match: this.owner,
             effect: ability.effects.onlyShooterContributes()
         });
@@ -42,13 +42,13 @@ class JasperStone extends LegendCard {
                     } else {
                         this.game.onceConditional('onShooterPicked', { 
                             until: 'onShootoutPhaseFinished',
-                            condition: event => event.card.controller === context.player 
+                            condition: event => context.player.equals(event.card.controller) 
                         }, event => givePermBonuses(event.card));
                     }
                 };
                 this.game.onceConditional('onCardAced', { 
                     until: 'onShootoutPhaseFinished',
-                    condition: event => event.card === context.target 
+                    condition: event => event.card.equals(context.target) 
                 }, eventHandler);
             }
         });

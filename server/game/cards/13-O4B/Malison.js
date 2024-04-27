@@ -20,30 +20,32 @@ class Malison extends SpellCard {
                 if(context.target.isStud()) {
                     this.applyAbilityEffect(context.ability, ability => ({
                         condition: () => context.target.isParticipating(),
-                        match: this.controller,
+                        match: player => player.equals(this.controller),
                         effect: ability.effects.modifyPosseStudBonus(1)
                     }));
                     this.game.addMessage('{0} uses {1} to give their posse +1 stud bonus', context.player, this);
                 } else {
                     this.applyAbilityEffect(context.ability, ability => ({
                         condition: () => context.target.isParticipating(),
-                        match: this.controller,
+                        match: player => player.equals(this.controller),
                         effect: ability.effects.modifyPosseDrawBonus(1)
                     }));
                     this.game.addMessage('{0} uses {1} to give their posse +1 draw bonus', context.player, this);            
                 }
                 let eventHandler = () => {
-                    this.parent.modifyInfluence(1);
-                    this.game.addMessage('{0} gains 1 influence on {1} thanks to {2}',
-                        this.controller, this.parent, this);
+                    if(this.parent) {
+                        this.parent.modifyInfluence(1);
+                        this.game.addMessage('{0} gains 1 influence on {1} thanks to {2}',
+                            this.controller, this.parent, this);
+                    }
                 };
                 this.game.onceConditional('onCardDiscarded', {
                     until: 'onShootoutPhaseFinished',
-                    condition: event => event.card === context.target 
+                    condition: event => event.card.equals(context.target) 
                 }, eventHandler);
                 this.game.onceConditional('onCardAced', { 
                     until: 'onShootoutPhaseFinished',
-                    condition: event => event.card === context.target 
+                    condition: event => event.card.equals(context.target) 
                 }, eventHandler);
             },
             source: this

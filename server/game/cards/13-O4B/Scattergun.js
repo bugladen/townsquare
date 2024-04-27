@@ -49,7 +49,7 @@ class Scattergun extends GoodsCard {
             handler: context => {
                 this.applyAbilityEffect(context.ability, ability => ({
                     condition: () => !this.isDudeAShooter(context.target),
-                    match: context.target,
+                    match: card => card.equals(context.target),
                     effect: ability.effects.doesNotProvideBulletRatings()
                 }));
             }
@@ -60,10 +60,7 @@ class Scattergun extends GoodsCard {
         if(!this.game.shootout) {
             return false;
         }
-        const leaderPosse = this.game.shootout.leaderPosse;
-        const oppPosse = this.game.shootout.opposingPosse;
-        return (leaderPosse && leaderPosse.shooter === dude) ||
-            (oppPosse && oppPosse.shooter === dude);
+        return this.game.shootout.isShooter(dude);
     }
 }
 

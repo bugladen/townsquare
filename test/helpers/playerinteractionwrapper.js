@@ -48,7 +48,7 @@ class PlayerInteractionWrapper {
     filterCardsByName(name, location = 'any') {
         let matchFunc = matchCardByNameAndPack(name);
         let cards = this.game.allCards.filter(card => 
-            card.controller === this.player && 
+            card.controller.equals(this.player) && 
             matchFunc(card.cardData) && 
             (location === 'any' || card.location === location)
         );
@@ -74,7 +74,7 @@ class PlayerInteractionWrapper {
     }
 
     filterCards(condition) {
-        let cards = this.game.allCards.filter(card => card.controller === this.player && condition(card));
+        let cards = this.game.allCards.filter(card => card.controller.equals(this.player) && condition(card));
 
         if(cards.length === 0) {
             throw new Error(`Could not find any matching cards for ${this.player.name}`);
@@ -146,7 +146,7 @@ class PlayerInteractionWrapper {
         var items = card.getMenu(this.player).filter(item => item.text === menuText);
 
         if(items.length === 0) {
-            throw new Error(`Card ${card.name} does not have a menu item "${menuText}"`);
+            throw new Error(`Card ${card.title} does not have a menu item "${menuText}"`);
         }
 
         this.game.menuItemClick(this.player.name, card.uuid, items[0]);
@@ -234,14 +234,6 @@ class PlayerInteractionWrapper {
 
     discardDrawHand() {
         this.player.drawHand.forEach(card => this.dragCard(card, 'discard pile'));
-    }
-
-    togglePromptedActionWindow(window, value) {
-        this.player.promptedActionWindows[window] = value;
-    }
-
-    toggleKeywordSettings(setting, value) {
-        this.player.keywordSettings[setting] = value;
     }
 
     reconnect() {

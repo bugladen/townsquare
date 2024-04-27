@@ -26,8 +26,9 @@ const SpellJobAction = require('./spelljobaction');
 /** @typedef {import('./game')} Game */
 /** @typedef {import('./player')} Player */
 
-class BaseCard {
+class BaseCard extends NullCard {
     constructor(owner, cardData) {
+        super();
         /** @type {Player} */
         this.owner = owner;
         /** @type {Player} */
@@ -40,6 +41,9 @@ class BaseCard {
         this.code = cardData.code;
         this.title = cardData.title;
         this.gang_code = cardData.gang_code;
+        if(!Array.isArray(this.gang_code)) {
+            this.gang_code = [this.gang_code];
+        }        
         this.facedown = false;
         this.eventsForRegistration = [];
         this.blankCount = 0;
@@ -49,7 +53,7 @@ class BaseCard {
         this.cost = cardData.cost;
         this.currentValue = cardData.rank;
         this.suitReferenceArray = [];
-        this.suitReferenceArray.unshift({ source: this.uuid, suit: this.cardData.suit});
+        this.suitReferenceArray.unshift({ source: 'default', suit: this.cardData.suit});
         this.type = cardData.type;
         this.type_code = cardData.type_code;
         this.currentBullets = cardData.bullets;
@@ -98,7 +102,7 @@ class BaseCard {
     }
 
     get suit() {
-        return this.suitReferenceArray[0].suit;
+        return this.suitReferenceArray[0].suit || '';
     }
 
     get bullets() {
@@ -140,6 +144,16 @@ class BaseCard {
             return new NullCard();
         }
         return location.locationCard;
+    }
+
+    getSundownInfluence() {
+        const clonedGame = this.game.simulateSundown();
+        const clonedCard = clonedGame.findCardInPlayByUuid(this.uuid);
+        return clonedCard.influence;
+    }
+    
+    equals(card) {
+        return card && this.uuid === card.uuid;
     }
 
     getValueText() {
@@ -243,7 +257,7 @@ class BaseCard {
     reaction(properties) {
         properties.printed = properties.printed || properties.printed === false ? properties.printed : true;
         var reaction;
-        if(properties.triggerBefore || properties.canCancel) {
+        if(properties.triggerBefore) {
             reaction = new CardBeforeReaction(this.game, this, properties);            
         } else {
             reaction = new CardReaction(this.game, this, properties);
@@ -259,7 +273,7 @@ class BaseCard {
     spellReaction(properties) {
         properties.printed = properties.printed || properties.printed === false ? properties.printed : true;
         var reaction;
-        if(properties.triggerBefore || properties.canCancel) {
+        if(properties.triggerBefore) {
             reaction = new SpellBeforeReaction(this.game, this, properties);            
         } else {
             reaction = new SpellReaction(this.game, this, properties);
@@ -326,6 +340,12 @@ class BaseCard {
         });
     }
 
+    hasReactionFor(event, abilityType) {
+        return this.abilities.reactions.some(reaction => 
+            reaction.eventType === abilityType &&
+            reaction.when[event.name] && reaction.when[event.name](event));
+    }
+
     /**
      * Applies effect (described in `propertyFactory`) of the ability and sets duration
      * based on the default rules:
@@ -336,9 +356,9 @@ class BaseCard {
      * @param {AbilityDsl} ability
      * @param {(ability: AbilityDsl) => void} propertyFactory
      */    
-    applyAbilityEffect(ability, propertyFactory) {
+    applyAbilityEffect(ability, propertyFactory, causedByPlayType) {
         if(this.game.shootout) {
-            this.untilEndOfShootoutPhase(ability, propertyFactory);
+            this.untilEndOfShootoutPhase(ability, propertyFactory, causedByPlayType);
         } else {
             var properties = propertyFactory(AbilityDsl);
             if(ability.playTypePlayed() === 'noon') {
@@ -573,6 +593,7 @@ class BaseCard {
     }
 
     leavesPlay() {
+        this.resetAbilities();
         this.tokens = {};        
         this.clearNew();
         this.gamelocation = '';
@@ -592,7 +613,7 @@ class BaseCard {
         let menu = [];
         let menuActionItems = this.getActionMenuItems(player);
 
-        if(this.location === 'play area' && player === this.controller) {
+        if(this.location === 'play area' && player.equals(this.controller)) {
             menu = [{ method: 'toggleUnBoot', text: 'Boot / Unboot' }];
         }
         if(!menu.length && menuActionItems.filter(menuItem => 
@@ -601,7 +622,7 @@ class BaseCard {
         }
         let menuCardActionItems = menuActionItems.filter(menuItem => menuItem.action.abilitySourceType === 'card');
         if(menuCardActionItems.length > 0) {
-            let menuIcon = 'flash';
+            let menuIcon = 'cog';
             const disabled = menuCardActionItems.every(menuItem => menuItem.item.disabled);
             if(disabled) {
                 if(menuCardActionItems.length === 1) {
@@ -625,8 +646,9 @@ class BaseCard {
         return menu;
     }
 
-    hasEnabledCardAbility(player, options = {}) {
-        const cardAbilityMenuItems = this.getActionMenuItems(player, options).filter(menuItem => menuItem.action.abilitySourceType === 'card');
+    hasEnabledCardAbility(player, options = {}, action) {
+        const cardAbilityMenuItems = this.getActionMenuItems(player, options)
+            .filter(menuItem => (!action || action === menuItem.action) && menuItem.action.abilitySourceType === 'card');
         return cardAbilityMenuItems && cardAbilityMenuItems.some(menuItem => !menuItem.item.disabled);
     }
 
@@ -643,7 +665,7 @@ class BaseCard {
     }
 
     toggleUnBoot(player) {
-        if(this.facedown || this.controller !== player) {
+        if(this.facedown || !this.controller.equals(player)) {
             return;
         }
 
@@ -713,7 +735,7 @@ class BaseCard {
     }
 
     isOpposing(player) {
-        return this.isParticipating() && this.controller !== player;
+        return this.isParticipating() && !this.controller.equals(player);
     }
 
     isInLeaderPosse() {
@@ -752,13 +774,14 @@ class BaseCard {
             case 'influence': return this.cardData.influence;
             case 'control': return this.cardData.control;
             case 'upkeep': return this.cardData.upkeep;
-            case 'production': return this.cardData.production;           
+            case 'production': return this.cardData.production;
+            case 'cost': return this.cardData.cost;
         }
     }
 
     resetStats() {
         this.suitReferenceArray = [];
-        this.suitReferenceArray.unshift({ source: this.uuid, suit: this.cardData.suit});
+        this.suitReferenceArray.unshift({ source: 'default', suit: this.cardData.suit});
         this.value = this.currentValue - this.permanentValue;
         this.permanentValue = 0;
         this.bullets = this.currentBullets - this.permanentBullets;
@@ -1027,30 +1050,38 @@ class BaseCard {
     }
 
     isInControlledLocation() {
-        return this.locationCard && this.locationCard.controller === this.controller;
+        return this.locationCard.controller.equals(this.controller);
     }
 
     isInSameLocation(card) {
-        let thisLocation = this.getGameLocation();
-        let cardLocation = card.getGameLocation();
+        const thisLocation = this.getGameLocation();
+        const cardLocation = card.getGameLocation();
         return thisLocation && cardLocation && thisLocation.uuid === cardLocation.uuid;
     }
 
     isInTownSquare() {
-        let location = this.getGameLocation();
+        const location = this.getGameLocation();
         return location && location.isTownSquare();
     }
 
     isInOpponentsHome() {
-        let location = this.getGameLocation();
+        const location = this.getGameLocation();
         return location && location.isOpponentsHome(this.controller);
     }
     
     isInOutOfTown() {
-        let location = this.getGameLocation();
-        let tempLocCard = location ? location.locationCard : null;
+        const location = this.getGameLocation();
+        const tempLocCard = location ? location.locationCard : null;
         return tempLocCard && tempLocCard.isOutOfTown();
     }
+    
+    isInShootoutLocation() {
+        if(!this.game.shootout) {
+            return false;
+        }
+        const location = this.game.shootout.shootoutLocation;
+        return location && location.uuid === this.gamelocation;
+    }    
 
     isLocationCard() {
         return false;
@@ -1087,7 +1118,11 @@ class BaseCard {
         return false;
     }
 
-    coversCasualties(type = 'any') {
+    coversCasualties(type = 'any', context) {
+        if((context && !this.allowGameAction(type, context, { isCardEffect: false })) ||
+            this.cannotBeChosenAsCasualty()) {
+            return 0;
+        }
         if(this.getType() === 'dude') {
             let harrowCasualty = this.isHarrowed() ? 1 : 0;
             if(type === 'ace' || type === 'any') {
@@ -1132,7 +1167,8 @@ class BaseCard {
             }
             return facedownSummary;
         }
-        const effects = this.game.effectEngine.getAppliedEffectsOnCard(this).map(effect => effect.getSummary());
+        const effects = this.game.effectEngine.getAppliedEffectsOnTarget(this)
+            .filter(effect => effect.effect.title).map(effect => effect.getSummary());
 
         let state = {
             printedStats: {
@@ -1142,10 +1178,12 @@ class BaseCard {
                 control: this.cardData.control,
                 value: this.cardData.rank,
                 suit: this.cardData.suit,
+                keywords: this.keywords.printedData,
                 upkeep: this.cardData.upkeep,
                 production: this.cardData.production
             },
             bullets: this.bullets,
+            classType: 'card',
             code: this.cardData.code,
             cost: this.cardData.cost,
             controlled: this.owner !== this.controller,

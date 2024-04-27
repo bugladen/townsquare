@@ -181,9 +181,10 @@ class BaseAbility {
     /**
      * Pays all costs for the ability simultaneously.
      */
-    payCosts(context) {
+    payCosts(context, onlyExpendAction = false) {
         for(let cost of this.cost) {
-            if(!this.options.skipCost || !this.options.skipCost(cost)) {
+            if(!this.options.skipCost || !this.options.skipCost(cost) &&
+                (!onlyExpendAction || cost.name === 'expendAction')) {
                 cost.pay(context);
             }
         }
@@ -276,14 +277,13 @@ class BaseAbility {
     selectAnotherTarget(player, context, properties) {
         const saveOnSelect = properties.onSelect;
         const updatedOnSelect = (player, card) => {
-            let cards = card;
-            if(!Array.isArray(card)) {
-                cards = [card];
-            }
-            // make it always an array for the event properties ('cards'), but keep it the same ('card')
-            // as we got it when used in 'saveOnSelect', because logic in onSelect function expects it that way.
-            context.game.raiseEvent('onTargetsChosen', { ability: this, player, cards, properties }, event => {
-                saveOnSelect(event.player, card);
+            // keep the card the same (do not make it as array) even for the event properties ('cards').
+            // It should also be used as we got it for the 'saveOnSelect', because logic in onSelect function expects it that way.
+            // Reason why we keep cards exactly as it is, is because the redirecting card can use it for the onSelect function
+            // which can either take single card or array of cards and by adjusting it here, the info on what is expected in the
+            // redirecting onSelect would be lost.
+            context.game.raiseEvent('onTargetsChosen', { ability: this, player, cards: card, properties }, event => {
+                saveOnSelect(event.player, event.cards);
             });
             return true;
         };
@@ -311,6 +311,14 @@ class BaseAbility {
             }
             this.resetOptions();
         });
+    }
+
+    cancel(markAsUsed = false) {
+        if(markAsUsed) {
+            this.incrementLimit();
+            this.cancelReason = 'abilityCancel';
+        }
+        this.cancelled = true;
     }
 
     isAction() {

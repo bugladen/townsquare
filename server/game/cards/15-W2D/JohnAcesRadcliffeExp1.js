@@ -12,7 +12,7 @@ class JohnAcesRadcliffeExp1 extends DudeCard {
 
         this.persistentEffect({
             condition: () => true,
-            match: card => card.parent === this,
+            match: card => this.equals(card.parent),
             effect: ability.effects.cannotBeTraded()
         });
 
@@ -46,7 +46,7 @@ class JohnAcesRadcliffeExp1 extends DudeCard {
                         player: context.player,
                         card: context.target,
                         params: {
-                            playType: 'ability',
+                            playingType: 'ability',
                             targetParent: this,
                             context
                         }

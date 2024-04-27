@@ -15,6 +15,7 @@ class ChristinePerfect extends DudeCard {
                 },
                 cardType: ['dude']
             },
+            actionContext: { card: this, gameAction: 'moveDude' },
             message: context => this.game.addMessage('{0} moves {1} to {2}\'s location and reduces their value by 5', context.player, this, context.target),
             handler: context => {
                 this.game.resolveGameAction(GameActions.moveDude({ 
@@ -33,7 +34,7 @@ class ChristinePerfect extends DudeCard {
     }
 
     isOpposingDudeWithHighestGrit(dude, context) {
-        const opponentsDudes = this.game.getDudesInPlay(dude.controller.getOpponent());
+        const opponentsDudes = this.game.getDudesInPlay(dude.controller);
         const highestGrit = opponentsDudes.reduce((highestGrit, dude) => {
             return Math.max(dude.getGrit(context), highestGrit);
         }, 0);

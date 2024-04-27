@@ -33,16 +33,7 @@ class JohnnyBrocklehurst extends DudeCard {
                     },
                     source: this
                 });
-                this.game.promptWithMenu(context.player, this, {
-                    activePrompt: {
-                        menuTitle: 'Make a play',
-                        buttons: [
-                            { text: 'Done', method: 'done' }
-                        ],
-                        promptTitle: this.title
-                    },
-                    source: this
-                });   
+                this.game.makePlayOutOfOrder(context.player, this);  
             }
         });
     }
@@ -54,10 +45,6 @@ class JohnnyBrocklehurst extends DudeCard {
 
     lower(player) {
         this.applyInfEffect(player, -1);
-        return true;
-    }
-
-    done() {
         return true;
     }
 
@@ -78,7 +65,7 @@ class JohnnyBrocklehurst extends DudeCard {
                 this.abilityContext.target.controller, this.abilityContext.target, text, this);
         };
         this.game.onceConditional('onAbilityResolutionStarted', { 
-            condition: event => event.context.player === this.abilityContext.player && event.ability.isAction()
+            condition: event => event.context.player.equals(this.abilityContext.player) && event.ability.isAction()
         }, eventHandler);
         this.game.addMessage('{0} uses {1} to give {2} {3} influence for the duration of next play', player, this, this.abilityContext.target, text);
     }

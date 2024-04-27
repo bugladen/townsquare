@@ -2,18 +2,23 @@ const AbilityDsl = require('./abilitydsl.js');
 const DrawCard = require('./drawcard.js');
 
 class HeartsCard extends DrawCard {
-    constructor(owner, cardData, useMeleeEffect, providesBullets) {
+    constructor(owner, cardData, options = {}) {
         super(owner, cardData);
         this.traded = false;
         this.canTrade = true;
         this.resetHandler = () => this.reset();
+        const fOptions = {
+            useMeleeEffect: options.useMeleeEffect || false,
+            providesBullets: options.providesBullets || false,
+            providesStudBonus: options.providesStudBonus || false
+        };
 
-        if(providesBullets && !this.bullets) {
+        if(fOptions.providesBullets && !this.bullets) {
             this.bullets = 0;
         }
-        if(this.bullets || providesBullets) {
+        if(this.bullets || fOptions.providesBullets) {
             this.whileAttached({
-                condition: () => (!useMeleeEffect || !this.meleeWeaponCondition()) && !this.areBulletBonusesBlanked(),
+                condition: () => (!fOptions.useMeleeEffect || !this.meleeWeaponCondition()) && !this.areBulletBonusesBlanked(),
                 effect: AbilityDsl.effects.dynamicBullets(() => this.bullets),
                 fromTrait: false
             });
@@ -25,11 +30,18 @@ class HeartsCard extends DrawCard {
                 fromTrait: false
             });
         }
+        if(fOptions.providesStudBonus) {
+            this.whileAttached({
+                condition: () => (!fOptions.useMeleeEffect || !this.meleeWeaponCondition()) && !this.areBulletBonusesBlanked(),
+                effect: AbilityDsl.effects.setAsStud(),
+                fromTrait: true
+            });            
+        }        
     }
 
     meleeWeaponCondition() {
         return this.game.shootout && this.game.shootout.getParticipants().some(dude => {
-            if(dude.controller === this.controller) {
+            if(dude.controller.equals(this.controller)) {
                 return false;
             }
             let nonMeleeUnbootedWeapon = dude.attachments.filter(att => att.hasKeyword('weapon') && !att.hasKeyword('melee') && !att.booted);

@@ -1,4 +1,5 @@
 const BaseAbility = require('./baseability.js');
+const PlayingTypes = require('./Constants/PlayingTypes.js');
 const Costs = require('./costs.js');
 const HandlerGameActionWrapper = require('./GameActions/HandlerGameActionWrapper.js');
 const TriggeredAbilityContext = require('./TriggeredAbilityContext.js');
@@ -15,7 +16,7 @@ class TriggeredAbility extends BaseAbility {
                 onSetupFinished: () => this.card.controller.availableGrifterActions > 0
             };
         }
-        this.playerFunc = properties.player || (player => this.card.controller === player || this.card.canUseControllerAbilities(player));
+        this.playerFunc = properties.player || (player => this.card.controller.equals(player) || this.card.canUseControllerAbilities(player));
         this.eventType = eventType;
         this.location = this.buildLocation(card, properties.location);
 
@@ -82,10 +83,6 @@ class TriggeredAbility extends BaseAbility {
             return false;
         }
 
-        if(event.ability && !!event.ability.cannotBeCanceled && this.eventType === 'cancelreaction') {
-            return;
-        }
-
         return listener(event);
     }
 
@@ -111,7 +108,7 @@ class TriggeredAbility extends BaseAbility {
             return false;
         }
 
-        if(isPlayableActionAbility && !this.isConditionCardInPlay() && !context.player.isCardInPlayableLocation(this.card, 'play')) {
+        if(isPlayableActionAbility && !this.isConditionCardInPlay() && !context.player.isCardInPlayableLocation(this.card, PlayingTypes.Play)) {
             return false;
         }
 

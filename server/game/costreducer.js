@@ -1,5 +1,6 @@
 const AbilityUsage = require('./abilityusage');
 const BaseCostReducer = require('./basecostreducer');
+const PlayingTypes = require('./Constants/PlayingTypes');
 
 class CostReducer extends BaseCostReducer {
     constructor(game, source, properties) {
@@ -11,12 +12,12 @@ class CostReducer extends BaseCostReducer {
         this.registerEvents();
     }
 
-    canReduce(playingType, card) {
+    canReduce(playingType, card, context) {
         if(this.usage && this.usage.isUsed()) {
             return false;
         }
 
-        return (this.playingTypes.includes(playingType) || this.playingTypes.includes('any')) && !!this.match(card);
+        return (this.playingTypes.includes(playingType) || this.playingTypes.includes(PlayingTypes.Any)) && !!this.match(card, context);
     }
 
     markUsed() {

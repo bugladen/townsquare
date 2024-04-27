@@ -2,7 +2,7 @@ const EventWindow = require('../../../server/game/gamesteps/eventwindow.js');
 
 describe('EventWindow', function() {
     beforeEach(function() {
-        this.gameSpy = jasmine.createSpyObj('game', ['openAbilityWindow', 'openReactionBeforeWindowForAttachedEvents', 'saveWithDupe']);
+        this.gameSpy = jasmine.createSpyObj('game', ['openAbilityWindow', 'openReactionBeforeWindowForAttachedEvents']);
         this.gameSpy.beforeEventHandlers = {};
         this.eventSpy = jasmine.createSpyObj('event', ['cancel', 'clearAttachedEvents', 'emitTo', 'executeHandler', 'executePostHandler', 'getConcurrentEvents']);
         this.eventSpy.attachedEvents = [];
@@ -17,7 +17,6 @@ describe('EventWindow', function() {
             });
 
             it('should emit all of the reaction events', function() {
-                expect(this.gameSpy.openAbilityWindow).toHaveBeenCalledWith({ abilityType: 'cancelreaction', event: this.eventSpy });
                 expect(this.gameSpy.openAbilityWindow).toHaveBeenCalledWith({ abilityType: 'traitbeforereaction', event: this.eventSpy });
                 expect(this.gameSpy.openAbilityWindow).toHaveBeenCalledWith({ abilityType: 'beforereaction', event: this.eventSpy });
                 expect(this.eventSpy.emitTo).toHaveBeenCalledWith(this.gameSpy);
@@ -27,31 +26,6 @@ describe('EventWindow', function() {
 
             it('should call the handler', function() {
                 expect(this.eventSpy.executeHandler).toHaveBeenCalled();
-            });
-        });
-
-        describe('when a concurrent event can be saved', function() {
-            beforeEach(function() {
-                this.concurrentEventSpy = jasmine.createSpyObj('concurrentEvent', ['cancel', 'clearAttachedEvents']);
-                this.concurrentEventSpy.attachedEvents = [];
-                this.concurrentEventSpy.card = { card: 1 };
-                this.eventSpy.card = { card: 2 };
-                this.eventSpy.getConcurrentEvents.and.returnValue([this.eventSpy, this.concurrentEventSpy]);
-            });
-
-            it('should not attempt to cancel any non-automatic-save event', function() {
-                this.eventWindow.continue();
-                expect(this.eventSpy.cancel).not.toHaveBeenCalled();
-            });
-
-            describe('when the card cannot be saved with a dupe', function() {
-                beforeEach(function() {
-                    this.eventWindow.continue();
-                });
-
-                it('should not cancel the automatic-save event', function() {
-                    expect(this.concurrentEventSpy.cancel).not.toHaveBeenCalled();
-                });
             });
         });
 
@@ -96,7 +70,6 @@ describe('EventWindow', function() {
             });
 
             it('should emit all of the reactions(before) events', function() {
-                expect(this.gameSpy.openAbilityWindow).toHaveBeenCalledWith({ abilityType: 'cancelreaction', event: this.eventSpy });
                 expect(this.gameSpy.openAbilityWindow).toHaveBeenCalledWith({ abilityType: 'traitbeforereaction', event: this.eventSpy });
                 expect(this.gameSpy.openAbilityWindow).toHaveBeenCalledWith({ abilityType: 'beforereaction', event: this.eventSpy });
             });

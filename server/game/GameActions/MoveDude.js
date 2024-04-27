@@ -25,7 +25,7 @@ class MoveDude extends GameAction {
         params.context = context;
         return this.event('onDudeMoved', { card, target: targetUuid, options: params }, event => {
             event.card.controller.moveDude(event.card, event.target, event.options);
-            if(event.card.game.shootout && event.card.isParticipating() && 
+            if(event.card.game.shootout && event.card.isParticipating() && !event.options.isAfterJob &&
                 event.options.originalLocation === event.card.game.shootout.shootoutLocation.uuid) {
                 event.thenAttachEvent(RemoveFromPosse.createEvent({ card: event.card, context: event.options.context }));
             }
@@ -37,7 +37,8 @@ class MoveDude extends GameAction {
             isCardEffect: options.isCardEffect || options.isCardEffect === false ? options.isCardEffect : true,
             moveType: options.moveType || 'default',
             needToBoot: options.needToBoot || options.needToBoot === false ? options.needToBoot : false,
-            allowBooted: options.allowBooted || options.allowBooted === false ? options.allowBooted : true
+            allowBooted: options.allowBooted || options.allowBooted === false ? options.allowBooted : true,
+            reason: options.reason || 'default'
         };
         if(defaultOptions.isCardEffect) {
             return Object.assign(options, defaultOptions);

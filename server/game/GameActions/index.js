@@ -24,7 +24,7 @@ const RemoveBounty = require('./RemoveBounty');
 const RemoveFromGame = require('./RemoveFromGame');
 const RemoveFromPosse = require('./RemoveFromPosse');
 const ReturnCardToHand = require('./ReturnCardToHand');
-const RevealCard = require('./RevealCard');
+const RevealTopCards = require('./RevealTopCards');
 const Search = require('./Search');
 const SendHome = require('./SendHome');
 const Shuffle = require('./Shuffle');
@@ -40,6 +40,7 @@ const GameActions = {
      * @param {*} props properties: 
      *  - `card`: card to which the bounty will be added
      *  - `amount` (1): amount of bounty to be added
+     *  - `maxAmount` (999): maximum amount of bounty for a card for this action
      */
     addBounty: props => new AbilityAdapter(AddBounty, props),
     /**
@@ -47,7 +48,6 @@ const GameActions = {
      * 
      * @param {*} props properties:
      *  - `card`: card to be aced
-     *  - `allowSave` (true): (to be added)
      *  - `source`: source location of the card to be aced
      */
     aceCard: props => new AbilityAdapter(AceCard, props),
@@ -82,7 +82,6 @@ const GameActions = {
      * 
      * @param {*} props properties:
      *  - `card`: card to be discarded
-     *  - `allowSave` (true): (to be added)
      *  - `source`: source location of the card to be discarded
      */
     discardCard: props => new AbilityAdapter(DiscardCard, props),
@@ -147,7 +146,7 @@ const GameActions = {
     removeFromGame: props => new AbilityAdapter(RemoveFromGame, props),
     removeFromPosse: props => new AbilityAdapter(RemoveFromPosse, props),
     returnCardToHand: props => new AbilityAdapter(ReturnCardToHand, props),
-    revealCard: props => new AbilityAdapter(RevealCard, props),
+    revealTopCards: props => new AbilityAdapter(RevealTopCards, props),
     /**
      * Searches specific location for a card(s).
      * 

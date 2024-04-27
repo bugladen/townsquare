@@ -7,7 +7,7 @@ This page contains the information you need to get started with contributing.
 ## How Can I Contribute?
  * [Implementing cards](#Implementing-cards) - implement specific card scripts 
  * [Implementing engine features](#Implementing-engine-features) - implement or improve game engine features
- * [Implement unit tests](#Implement-unit-tests) - implement unit test to provide bigger cover
+ * [Implement unit tests](#Implement-unit-tests) - implement unit test to provide more coverage
  * [Test and report bugs](#Test-and-report-bugs) - play the game and test various parts and cards
  * [UX and client contributions](#UX-and-client-contributions) - improve user experience and front-end
 
@@ -56,13 +56,9 @@ For the server, IDE setup and other development tips see [Development](#Developm
 **Requirements:**
 - [Node.js](https://nodejs.org/en/download/) - 
   * Linux 
-     - Recommended 14.x, working also on 12.x and 10.x
-     - use Python 2.7
+     - Recommended 14.x, working also on 12.x
   * Windows
-     - Recommended 10.x, that is the only version we made it to work so far
-     - use Python 2.7 (if you have more Python version, use `npm config set python <path/to/python27>`
-     - use Visual Studio 2015 build tools: `npm config set msvs_version 2015`
-     - to compile native Node modules, you will also need the build tools: `npm install --global --production windows-build-tools`
+     - Recommended 14.x, working also on 12.x
 - [MongoDB](https://www.mongodb.com/) - used as storage so you'll need that installed and running
 
 **Recommended:**
@@ -131,7 +127,7 @@ linting by [ESLint](http://eslint.org/), according to the rules defined in
 case install ESLint and run
 
 ```
-eslint client/ server/ test/
+npm run lint
 ```
 
 from repository's root.
@@ -144,3 +140,8 @@ npm test
 
 If you are making any game engine changes, these will not be accepted without unit tests to cover them.
 
+Code coverage reports can be generated via:
+
+```
+npm run coverage
+```

@@ -6,7 +6,7 @@ class GraciousGifts extends OutfitCard {
         this.persistentEffect({
             condition: () => this.owner.ghostrock < this.owner.getOpponent().ghostrock,
             match: this.owner,
-            effect: ability.effects.modifySundownDiscard(1)
+            effect: ability.effects.modifyNightfallDiscard(1)
         });
 
         this.action({
@@ -19,7 +19,7 @@ class GraciousGifts extends OutfitCard {
             target: {
                 activePromptTitle: 'Select Your Dude to unboot',
                 waitingPromptTitle: 'Waiting for Opponent to Select Their Dude',
-                cardCondition: card => card.location === 'play area' && card.controller === this.controller,
+                cardCondition: card => card.location === 'play area' && card.controller.equals(this.controller) && card.booted,
                 cardType: 'dude',
                 gameAction: 'unboot'
             },

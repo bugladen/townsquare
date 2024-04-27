@@ -9,14 +9,14 @@ class DiscardCard extends GameAction {
         return ['draw deck', 'hand', 'play area', 'draw hand', 'being played'].includes(card.location);
     }
 
-    createEvent({ card, allowSave = true, options = { isCardEffect: true }, context }) {
+    createEvent({ card, options = { isCardEffect: true }, context }) {
         let params = {
             card: card,
-            allowSave: allowSave,
             originalLocation: card.location,
             originalGameLocation: card.gamelocation,
             isCardEffect: options.isCardEffect,
-            isCasualty: options.isCasualty
+            isCasualty: options.isCasualty,
+            isUpkeep: options.isUpkeep
         };
         if(context) {
             params.isFromOpponent = context.player !== card.controller;

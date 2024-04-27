@@ -1,3 +1,4 @@
+const PhaseNames = require('../../Constants/PhaseNames.js');
 const DeedCard = require('../../deedcard.js');
 
 class TheOrphanage extends DeedCard {
@@ -11,6 +12,7 @@ class TheOrphanage extends DeedCard {
                     context.player, this),
             handler: context => {
                 this.untilEndOfPhase(context.ability, ability => ({
+                    targetController: 'any',
                     condition: () => true,
                     match: card => card.getType() === 'deed' && this.getDeedControlWoOrphanage(card) >= 2,
                     effect: [
@@ -18,15 +20,15 @@ class TheOrphanage extends DeedCard {
                         ability.effects.modifyControl(-1)
                         
                     ]
-                }), 'upkeep'
+                }), PhaseNames.Upkeep
                 );
             }
         });
     }
 
     getDeedControlWoOrphanage(card) {
-        const effects = this.game.effectEngine.getAppliedEffectsOnCard(card);
-        if(effects && effects.some(effect => effect.source === this)) {
+        const effects = this.game.effectEngine.getAppliedEffectsOnTarget(card);
+        if(effects && effects.some(effect => this.equals(effect.source))) {
             return card.control + 1;
         }
         return card.control;

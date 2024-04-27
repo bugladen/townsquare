@@ -1,19 +1,19 @@
 const uuid = require('uuid');
 
 const BaseAbilityWindow = require('./BaseAbilityWindow');
-const CancelTimer = require('./CancelTimer');
+const ReactTimer = require('./ReactTimer');
 const TriggeredAbilityWindowTitles = require('./TriggeredAbilityWindowTitles');
 
 class TriggeredAbilityWindow extends BaseAbilityWindow {
     constructor(game, properties) {
         super(game, properties);
 
-        this.cancelTimer = new CancelTimer(this.event, this.abilityType);
-        this.forceWindowPerPlayer = {};
+        this.reactTimer = new ReactTimer(this.event, this.abilityType);
+        this.forceReactPerPlayer = {};
 
         for(let player of game.getPlayersInFirstPlayerOrder()) {
-            if(this.cancelTimer.isEnabled(player)) {
-                this.forceWindowPerPlayer[player.name] = true;
+            if(this.reactTimer.isEnabled(player)) {
+                this.forceReactPerPlayer[player.name] = true;
             }
         }
     }
@@ -28,7 +28,7 @@ class TriggeredAbilityWindow extends BaseAbilityWindow {
 
         this.players = this.filterChoicelessPlayers(this.players || this.game.getPlayersInFirstPlayerOrder());
 
-        if(this.players.length === 0 || this.abilityChoices.length === 0 && !this.forceWindowPerPlayer[this.players[0].name]) {
+        if(this.players.length === 0 || this.abilityChoices.length === 0 && !this.forceReactPerPlayer[this.players[0].name]) {
             return true;
         }
 
@@ -38,49 +38,54 @@ class TriggeredAbilityWindow extends BaseAbilityWindow {
     }
 
     filterChoicelessPlayers(players) {
-        return players.filter(player => this.cancelTimer.isEnabled(player) || 
+        return players.filter(player => this.reactTimer.isEnabled(player) ||
             this.abilityChoices.some(abilityChoice => abilityChoice.player === player && !abilityChoice.ability.usage.isUsed()));
     }
 
     promptPlayer(player) {
-        let cardsForPlayer = this.abilityChoices.filter(choice => choice.player === player).map(choice => choice.card);
+        let choicesForPlayer = this.abilityChoices.filter(choice => choice.player === player);
+        let cardsForPlayer = choicesForPlayer.map(choice => choice.card);
 
-        let unclickableCards = cardsForPlayer.filter(card => card.location === 'draw deck');
-
-        this.game.promptForSelect(player, {
-            activePromptTitle: TriggeredAbilityWindowTitles.getTitle(this.abilityType, this.event.getPrimaryEvent()),
-            isCardEffect: false,
-            cardCondition: card => cardsForPlayer.includes(card),
-            cardType: ['dude', 'deed', 'action', 'goods', 'spell', 'outfit', 'legend'],
-            additionalButtons: this.getButtons(player, unclickableCards),
-            additionalControls: this.getAdditionalPromptControls(),
-            doneButtonText: 'Pass',
-            onSelect: (player, card) => this.chooseCardToTrigger(player, card),
-            onCancel: () => this.pass(),
-            onMenuCommand: (player, arg) => {
-                if(arg === 'pass') {
-                    this.pass();
-                } else if(arg === 'passAndPauseForRound') {
-                    player.disableTimerForRound();
-                    this.pass();
-                } else {
-                    let card = cardsForPlayer.find(c => c.uuid === arg);
-                    this.chooseCardToTrigger(player, card);
-                }
-
-                return true;
+        if(player === this.game.automaton) {
+            if(this.game.automaton.decideReacts(cardsForPlayer[0], this.event)) {
+                let choice = choicesForPlayer.find(choice => choice.card === cardsForPlayer[0]);
+                this.chooseAbility(choice);
             }
-        });
+        } else {
+            this.game.promptForSelect(player, {
+                activePromptTitle: TriggeredAbilityWindowTitles.getTitle(this.abilityType, this.event.getPrimaryEvent()),
+                isCardEffect: false,
+                cardCondition: card => cardsForPlayer.includes(card),
+                cardType: ['dude', 'deed', 'action', 'goods', 'spell', 'outfit', 'legend'],
+                additionalButtons: this.getButtons(player),
+                additionalControls: this.getAdditionalPromptControls(),
+                doneButtonText: 'Pass',
+                onSelect: (player, card) => {
+                    let choice = choicesForPlayer.find(choice => choice.card === card);
+                    this.chooseAbility(choice);
+                    return true;
+                },
+                onCancel: () => this.pass(),
+                onMenuCommand: (player, arg) => {
+                    if(arg === 'pass') {
+                        this.pass();
+                    } else if(arg === 'passAndPauseForRound') {
+                        player.disableTimerForRound();
+                        this.pass();
+                    }
 
-        this.forceWindowPerPlayer[player.name] = false;
+                    return true;
+                }
+            });
+        }
+
+        this.forceReactPerPlayer[player.name] = false;
     }
 
-    getButtons(player, unclickableCards) {
-        let buttons = unclickableCards.map(card => {
-            return { text: `${card.name} (${card.location})`, card: card, mapCard: true };
-        });
+    getButtons(player) {
+        const buttons = [];
 
-        if(this.cancelTimer.isEnabled(player)) {
+        if(this.reactTimer.isEnabled(player)) {
             buttons.push({ timer: true, arg: 'pass', id: uuid.v1() });
             buttons.push({ text: 'I need more time', timerCancel: true });
             buttons.push({ text: 'Don\'t ask again until end of round', timerCancel: true, arg: 'passAndPauseForRound' });
@@ -99,7 +104,10 @@ class TriggeredAbilityWindow extends BaseAbilityWindow {
                     targets: event.targets.map(target => target.getShortSummary())
                 });
             } else if(event.name === 'onTargetsChosen') {
-                const targets = event.targets ? event.targets.getTargets() : event.cards;
+                let targets = event.targets ? event.targets.getTargets() : event.cards;
+                if(!Array.isArray(targets)) {
+                    targets = [targets];
+                }
                 controls.push({
                     type: 'targeting',
                     source: event.ability.card.getShortSummary(),
@@ -111,46 +119,12 @@ class TriggeredAbilityWindow extends BaseAbilityWindow {
         return controls;
     }
 
-    chooseCardToTrigger(player, card) {
-        let choices = this.abilityChoices.filter(choice => choice.player === player && choice.card === card);
-
-        if(choices.length === 0) {
-            return false;
-        }
-
-        let availableTargets = choices.map(choice => choice.context.event.card || choice.context.event.target).filter(card => !!card);
-
-        if(choices.length === 1 || availableTargets.length <= 1) {
-            this.chooseAbility(choices[0]);
-            return true;
-        }
-
-        this.game.promptForSelect(player, {
-            activePromptTitle: `Choose triggering card for ${card.name}`,
-            isCardEffect: false,
-            cardCondition: card => availableTargets.includes(card),
-            onSelect: (player, selectedCard) => {
-                let choice = choices.find(choice => choice.context.event.card === selectedCard || choice.context.event.target === selectedCard);
-
-                if(!choice || choice.player !== player) {
-                    return false;
-                }
-
-                this.chooseAbility(choice);
-
-                return true;
-            }
-        });
-
-        return true;
-    }
-
     chooseAbility(choice) {
         this.resolveAbility(choice.ability, choice.context);
 
         // Always rotate player order without filtering, in case an ability is
         // triggered that could then make another ability eligible after it is
-        // resolved: e.g. Rains of Castamere into Wardens of the West
+        // resolved.
         this.players = this.rotatedPlayerOrder(choice.player);
     }
 

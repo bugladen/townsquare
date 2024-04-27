@@ -5,13 +5,14 @@ const Shuffle = require('./Shuffle');
 const Event = require('../event');
 
 class Search extends GameAction {
-    constructor({ gameAction, location, match, message, cancelMessage, topCards, numToSelect, 
+    constructor({ gameAction, location, match, message, cancelMessage, topCards, numToSelect, mode,
         doNotShuffleDeck, player, searchedPlayer, title, handler }) {
         super('search');
         this.gameAction = gameAction;
         this.match = match || {};
         this.topCards = topCards;
         this.numToSelect = numToSelect;
+        this.mode = mode;
         this.doNotShuffleDeck = doNotShuffleDeck;
         if(player) {
             this.playerFunc = (() => player);
@@ -40,7 +41,7 @@ class Search extends GameAction {
         return this.event('onDeckSearched', { player, searchedPlayer }, event => {
             const revealFunc = this.createRevealDrawDeckCards({ choosingPlayer: event.player, searchedPlayer: event.searchedPlayer, numCards: this.topCards });
             const searchCondition = this.createSearchCondition(event.searchedPlayer);
-            const modeProps = this.numToSelect ? { mode: 'upTo', numCards: this.numToSelect } : {};
+            const modeProps = this.numToSelect ? { mode: `${this.mode ? this.mode : 'upTo'}`, numCards: this.numToSelect } : {};
             if(this.location.includes('draw deck')) {
                 context.game.cardVisibility.addRule(revealFunc);
             }
@@ -90,6 +91,9 @@ class Search extends GameAction {
             return () => true;
         }
         const validLocations = this.location;
+        if(numCards && choosingPlayer.drawDeck.length < numCards) {
+            choosingPlayer.shuffleDiscardToDrawDeck(true);
+        }        
         return function(card, player) {
             if(player !== choosingPlayer) {
                 return false;
@@ -100,7 +104,7 @@ class Search extends GameAction {
                 return cards.includes(card);
             }
 
-            return validLocations.includes(card.location) && card.controller === searchedPlayer;
+            return validLocations.includes(card.location) && card.controller.equals(searchedPlayer);
         };
     }
 

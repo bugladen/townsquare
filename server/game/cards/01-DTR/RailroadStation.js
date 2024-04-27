@@ -15,16 +15,21 @@ class RailroadStation extends DeedCard {
             },
             handler: context => {
                 this.game.promptForLocation(context.player, {
-                    activePromptTitle: 'Select destination',
+                    activePromptTitle: 'Select destination for ' + context.target.title,
                     waitingPromptTitle: 'Waiting for opponent to select location',
+                    cardCondition: {
+                        location: 'play area',
+                        condition: card => !card.equals(this)
+                    },
                     onSelect: (player, location) => {
                         this.game.resolveGameAction(GameActions.moveDude({ 
                             card: context.target, 
                             targetUuid: location.uuid
                         }), context);   
-                        this.game.addMessage('{0} uses {1} to move {2} to {3}.', player, this, context.target, location);                                 
+                        this.game.addMessage('{0} uses {1} to move {2} to {3}', player, this, context.target, location);                                 
                         return true;
-                    }
+                    },
+                    source: this
                 });
             }
 

@@ -9,17 +9,16 @@ class ThisllHurtInTheMornin extends ActionCard {
             target: {
                 activePromptTitle: 'Choose up to 2 cards',
                 cardCondition: { location: 'draw hand', controller: 'opponent' },
-                cardType: ['dude', 'deed', 'goods', 'spell', 'action', 'joker'],
                 numCards: 2
             },
             message: context => 
                 this.game.addMessage('{0} uses {1} to discard {2} from {3}\'s draw hand and replaces it/them from {3}\'s draw deck', 
                     context.player, this, context.target, context.player.getOpponent()),
             handler: context => {
-                context.player.discardCards(context.target, false, (discardedCards) => {
+                context.player.discardCards(context.target, (discardedCards) => {
                     const opponent = context.player.getOpponent();
-                    const topCards = opponent.drawDeck.slice(0, discardedCards.length);
-                    topCards.forEach(card => opponent.moveCardWithContext(card, 'draw hand', context));
+                    opponent.drawDeckAction(discardedCards.length, 
+                        card => opponent.moveCardWithContext(card, 'draw hand', context));
                     if(!context.player.isCheatin()) {
                         discardedCards.forEach(card => {
                             this.game.queueSimpleStep(() => {

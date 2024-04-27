@@ -4,10 +4,11 @@ const DropCommand = require('../../../server/game/ServerCommands/DropCommand');
 describe('DropCommand', () => {
     describe('execute()', function() {
         beforeEach(function() {
-            this.gameSpy = jasmine.createSpyObj('game', ['addAlert', 'queueStep']);
-            this.playerSpy = jasmine.createSpyObj('player', ['discardCard', 'moveCard', 'putIntoPlay', 'aceCard']);
+            this.gameSpy = jasmine.createSpyObj('game', ['addAlert', 'queueStep', 'isSolo']);
+            this.playerSpy = jasmine.createSpyObj('player', ['discardCard', 'moveCard', 'putIntoPlay', 'aceCard', 'equals']);
+            this.playerSpy.equals.and.returnValue(true);
 
-            this.cardSpy = jasmine.createSpyObj('card', ['allowGameAction', 'getType']);
+            this.cardSpy = jasmine.createSpyObj('card', ['allowGameAction', 'getType', 'equals']);
             this.cardSpy.allowGameAction.and.returnValue(true);
             this.cardSpy.controller = this.cardSpy.owner = this.playerSpy;
             this.cardSpy.getType.and.returnValue('character');
@@ -91,7 +92,7 @@ describe('DropCommand', () => {
                     });
 
                     it('should ace the dude', function() {
-                        expect(this.playerSpy.aceCard).toHaveBeenCalledWith(this.cardSpy, false, jasmine.objectContaining({ force: true }), jasmine.objectContaining({ game: this.gameSpy, player: this.playerSpy }));
+                        expect(this.playerSpy.aceCard).toHaveBeenCalledWith(this.cardSpy, jasmine.objectContaining({ force: true }), jasmine.objectContaining({ game: this.gameSpy, player: this.playerSpy }));
                     });
                 });
             });
@@ -126,7 +127,7 @@ describe('DropCommand', () => {
                         });
 
                         it('should discard the card', function() {
-                            expect(this.playerSpy.discardCard).toHaveBeenCalledWith(this.cardSpy, false, jasmine.objectContaining({ force: true }), jasmine.objectContaining({ game: this.gameSpy, player: this.playerSpy }));
+                            expect(this.playerSpy.discardCard).toHaveBeenCalledWith(this.cardSpy, jasmine.objectContaining({ force: true }), jasmine.objectContaining({ game: this.gameSpy, player: this.playerSpy }));
                         });
                     });
                 });

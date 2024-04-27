@@ -4,8 +4,8 @@ const BootCost = require('./costs/BootCost.js');
 const XValuePrompt = require('./costs/XValuePrompt.js');
 const SelfCost = require('./costs/SelfCost.js');
 const UnbootCost = require('./costs/UnbootCost.js');
-const MoveTokenFromSelfCost = require('./costs/MoveTokenFromSelfCost.js');
 const DiscardFromDeckCost = require('./costs/DiscardFromDeckCost');
+const PlayingTypes = require('./Constants/PlayingTypes.js');
 
 const Costs = {
     /**
@@ -37,7 +37,7 @@ const Costs = {
      * Cost that requires booting a card that matches the passed condition
      * predicate function.
      */
-    boot: condition => CostBuilders.boot.select(condition),
+    boot: (condition, gameAction) => CostBuilders.boot.select(condition, null, gameAction),
     /**
      * Cost that requires booting a certain number of cards that match the
      * passed condition predicate function.
@@ -133,9 +133,10 @@ const Costs = {
      */
     expendAction: function() {
         return {
+            name: 'expendAction',
             canPay: function(context) {
-                return context.player.isCardInPlayableLocation(context.source, context.comboNumber ? 'combo' : 'play') && 
-                    context.player.canPlay(context.source, 'play');
+                return context.player.isCardInPlayableLocation(context.source, context.comboNumber ? PlayingTypes.Combo : PlayingTypes.Play) && 
+                    context.player.canPlay(context.source);
             },
             pay: function(context) {
                 // Events become in a "state of being played" while they resolve
@@ -203,7 +204,7 @@ const Costs = {
      */
     playAction: function() {
         return [
-            Costs.payReduceableGRCost('play'),
+            Costs.payReduceableGRCost(PlayingTypes.Play, true),
             Costs.expendAction()
         ];
     },
@@ -212,22 +213,17 @@ const Costs = {
      */
     discardTokenFromSelf: (type, amount) => CostBuilders.discardToken(type, amount).self(),
     /**
-     * Cost that will move a fixed amount of a passed type token from the current card to a
-     * destination card matching the passed condition predicate function.
-     */
-    moveTokenFromSelf: (type, amount, condition) => new MoveTokenFromSelfCost(type, amount, condition),
-    /**
      * Cost that will pay the printed ghostrock cost on the card minus any active
      * reducer effects the play has activated. Upon playing the card, all
      * matching reducer effects will expire, if applicable.
      */
-    payReduceableGRCost: function(playingType) {
+    payReduceableGRCost: function(playingType, addCostMessage = false) {
         return {
             canPay: function(context) {
                 if(context.cardToUpgrade) {
                     return true;
                 }
-                let reducedCost = context.player.getReducedCost(playingType, context.source);
+                let reducedCost = context.player.getReducedCost(playingType, context.source, context);
                 return context.player.getSpendableGhostRock({ playingType: playingType, context: context }) >= reducedCost;
             },
             pay: function(context) {
@@ -236,14 +232,23 @@ const Costs = {
                 }
                 context.usedGRSources = context.usedGRSources || {};
                 context.usedReducers = context.usedReducers || {};
-                context.costs.ghostrock = context.player.getReducedCost(playingType, context.source);
+                context.costs.ghostrock = context.player.getReducedCost(playingType, context.source, context);
                 context.game.spendGhostRock({ 
                     amount: context.costs.ghostrock, 
                     player: context.player, 
                     playingType: playingType, 
                     context: context 
                 }, grSources => context.usedGRSources[context.source.uuid] = grSources);
-                context.usedReducers[context.source.uuid] = context.player.markUsedReducers(playingType, context.source);
+                const reduction = context.costs.ghostrock - context.source.cost;
+                if(addCostMessage && (reduction || context.source.cost)) {
+                    let redText = '';
+                    if(reduction) {
+                        redText = reduction < 0 ? `(reduced by ${reduction})` : `(increased by ${reduction})`;
+                    }
+                    context.game.addMessage('{0} pays {1} GR to {2} {3} {4}', 
+                        context.player, context.costs.ghostrock, playingType, context.source, redText);
+                }
+                context.usedReducers[context.source.uuid] = context.player.markUsedReducers(playingType, context.source, context);
             },
             unpay: function(context) {
                 context.usedReducers[context.source.uuid].forEach(reducer => {
@@ -264,20 +269,31 @@ const Costs = {
     },
     /**
      * Cost in which the player must pay a fixed, non-reduceable amount of ghost rock.
-     * @param {number} amount
-     * @param {boolean} toOpponent - Ghost rock should be played to opponent instead of bank
+     * @param {number | Function} amountOrFunc - amount of ghost rock that must be paid
+     * @param {boolean} toOpponent - Ghost rock should be paid to opponent instead of bank
+     * @param {number | Function} minAmount - minimum amount that will be required to pay this cost
      */
-    payGhostRock: function(amount, toOpponent) {
+    payGhostRock: function(amountOrFunc, toOpponent, minAmount) {
         return {
             canPay: function(context) {
+                let amount = typeof(minAmount) === 'function' ? minAmount(context) : minAmount;
+                if(amount === null || amount === undefined) {
+                    amount = typeof(amountOrFunc) === 'function' ? amountOrFunc(context) : amountOrFunc;
+                }
+                if(isNaN(amount)) {
+                    return false;
+                }
                 return context.player.getSpendableGhostRock({ 
                     player: context.player, 
-                    playingType: 'ability', 
+                    playingType: PlayingTypes.Ability, 
                     source: context.source,
                     context: context
                 }) >= amount;
             },
             pay: function(context) {
+                context.usedGRSources = context.usedGRSources || {};
+                const amount = typeof(amountOrFunc) === 'function' ? amountOrFunc(context) : amountOrFunc;
+                context.grCost = amount;
                 if(toOpponent) {
                     context.game.transferGhostRock({
                         from: context.player,
@@ -286,11 +302,26 @@ const Costs = {
                     });                    
                 } else {
                     context.game.spendGhostRock({ 
-                        amount: amount, 
+                        amount: amount,
                         player: context.player, 
                         source: context.source, 
-                        context: context 
-                    });
+                        context: context
+                    }, grSources => context.usedGRSources[context.source.uuid] = grSources);
+                }
+            },
+            unpay: function(context) {
+                if(toOpponent) {
+                    context.game.transferGhostRock({
+                        from: context.player.getOpponent(),
+                        to: context.player,
+                        amount: context.grCost
+                    });                    
+                } else {
+                    if(context.usedGRSources[context.source.uuid]) {
+                        context.usedGRSources[context.source.uuid].forEach(grSource => 
+                            grSource.source.modifyGhostRock(grSource.amount));
+                        delete context.usedGRSources[context.source.uuid];
+                    }
                 }
             }
         };
@@ -300,10 +331,10 @@ const Costs = {
      * the passed maximum and either the player's or his opponent's ghostrock.
      * Used by Flame-Thrower.
      */
-    payXGhostRock: function(minFunc, maxFunc, playingType = 'play', opponentFunc) {
+    payXGhostRock: function(minFunc, maxFunc, playingType = PlayingTypes.Play, opponentFunc) {
         return {
             canPay: function(context) {
-                let reduction = context.player.getCostReduction(playingType, context.source);
+                let reduction = context.player.getCostReduction(playingType, context.source, context);
                 let opponentObj = opponentFunc && opponentFunc(context);
 
                 if(!opponentObj) {
@@ -312,7 +343,7 @@ const Costs = {
                 return opponentObj.getSpendableGhostRock({ playingType: playingType, context: context }) >= (minFunc(context) - reduction);
             },
             resolve: function(context, result = { resolved: false }) {
-                let reduction = context.player.getCostReduction(playingType, context.source);
+                let reduction = context.player.getCostReduction(playingType, context.source, context);
                 let opponentObj = opponentFunc && opponentFunc(context);
                 let player = opponentObj || context.player;
                 let ghostrock = player.getSpendableGhostRock({ playingType: playingType, context: context });
@@ -333,7 +364,7 @@ const Costs = {
                     playingType: playingType, 
                     context: context 
                 });
-                context.player.markUsedReducers(playingType, context.source);
+                context.player.markUsedReducers(playingType, context.source, context);
             }
         };
     }

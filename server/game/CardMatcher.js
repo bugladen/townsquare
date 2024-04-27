@@ -32,6 +32,7 @@ class CardMatcher {
             Matcher.containsValue(properties.location, card.location) &&
             Matcher.containsValue(properties.title, card.title) &&
             Matcher.anyValue(properties.keyword, keyword => card.hasKeyword(keyword)) &&
+            Matcher.allValues(properties.allKeywords, keyword => card.hasKeyword(keyword)) &&
             Matcher.containsValue(properties.unique, card.isUnique()) &&
             Matcher.anyValue(properties.hasAttachments, hasAttachments => hasAttachments === (card.attachments.length > 0)) &&
             Matcher.anyValue(properties.inLeaderPosse, inLeaderPosse => card.isInLeaderPosse() === inLeaderPosse) &&
@@ -52,7 +53,7 @@ class CardMatcher {
         return function(card, context) {
             return (
                 (card.getType() === 'townsquare' || CardMatcher.isMatch(card, propertiesOrFunc)) &&
-                Matcher.anyValue(propertiesOrFunc.controller, controller => card.controller === controller || CardMatcher.attachmentControllerMatches(controller, card, context)) &&
+                Matcher.anyValue(propertiesOrFunc.controller, controller => card.controller.equals(controller) || CardMatcher.attachmentControllerMatches(controller, card, context)) &&
                 Matcher.anyValue(propertiesOrFunc.condition, condition => condition(card, context))
             );
         };
@@ -68,7 +69,7 @@ class CardMatcher {
         return function(card, context) {
             return (
                 CardMatcher.isMatch(card, defaultedProperties) &&
-                Matcher.anyValue(properties.controller, controller => card.controller === controller || CardMatcher.attachmentControllerMatches(controller, card, context))
+                Matcher.anyValue(properties.controller, controller => card.controller.equals(controller) || CardMatcher.attachmentControllerMatches(controller, card, context))
             );
         };
     }
@@ -78,9 +79,9 @@ class CardMatcher {
             case 'any':
                 return true;
             case 'current':
-                return card.controller === context.player;
+                return card.controller.equals(context.player);
             case 'opponent':
-                return card.controller !== context.player;
+                return !card.controller.equals(context.player);
         }
 
         return false;

@@ -39,7 +39,7 @@ class Lobby {
         this.userService.on('onBlocklistChanged', this.onBlocklistChanged.bind(this));
 
         this.io = options.io || socketio(server, { perMessageDeflate: false });
-        this.io.set('heartbeat timeout', 30000);
+        this.io.eio.pingTimeout = 30000;
         this.io.use(this.handshake.bind(this));
         this.io.on('connection', this.onConnection.bind(this));
 
@@ -629,7 +629,7 @@ class Lobby {
         }
     }
 
-    onSelectDeck(socket, gameId, deckId) {
+    onSelectDeck(socket, gameId, deckId, forSolo) {
         let game = this.games[gameId];
         if(!game) {
             return Promise.reject('Game not found');
@@ -642,7 +642,7 @@ class Lobby {
 
                 formattedDeck.status = validateDeck(formattedDeck, { packs: packs, restrictedLists: [game.restrictedList], includeExtendedStatus: false });
 
-                game.selectDeck(socket.user.username, formattedDeck);
+                game.selectDeck(socket.user.username, formattedDeck, forSolo);
 
                 this.sendGameState(game);
             })

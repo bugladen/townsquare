@@ -1,9 +1,9 @@
+const PhaseNames = require('../../Constants/PhaseNames');
 const UiPrompt = require('../uiprompt');
 
 class DrawHandPrompt extends UiPrompt {
     constructor(game, drawCounts) {
-        super();
-        this.game = game;
+        super(game);
         this.players = game.getPlayers();
         this.drawCounts = drawCounts;
         if(!this.drawCounts) {
@@ -16,6 +16,7 @@ class DrawHandPrompt extends UiPrompt {
             this.selectedCards[player.name] = [];
             this.updateDrawCount(player);
         });
+        this.promptInfo = {};
     }
 
     activeCondition(player) {
@@ -49,6 +50,7 @@ class DrawHandPrompt extends UiPrompt {
         } 
         return {
             menuTitle: 'Reveal draw hand?',
+            promptInfo: this.promptInfo,
             buttons: [
                 { arg: 'revealdraw', text: 'Ready' }
             ],
@@ -65,7 +67,7 @@ class DrawHandPrompt extends UiPrompt {
     }
 
     continue() {
-        if(this.game.currentPhase === 'gambling') {
+        if(this.game.currentPhase === PhaseNames.Gambling) {
             // in gambling phase hands are drawn in separate step before this prompt
             this.drawCounts.forEach(drawCount => {
                 drawCount.handDrawn = true;
@@ -144,15 +146,33 @@ class DrawHandPrompt extends UiPrompt {
             return false;
         }
         if(arg === 'revealdraw') {
-            if(player.drawHand.length !== 5) {
+            if(player.drawHand.length !== 5 && player.hasCardsToDraw()) {
                 player.drawHandSelected = false;
+                this.promptInfo.type = 'danger';
+                this.promptInfo.message = `Number of cards in draw hand (${player.drawHand.length}) is not 5!`;
                 return false;
             }
+            this.promptInfo = {};
             player.drawHandSelected = true;   
             this.game.addMessage('{0} is ready to reveal their draw hand', player);
             return true;
         }
         return false;
+    }
+
+    handleSolo() {
+        if(this.game.currentPhase === PhaseNames.Gambling) {
+            this.onMenuCommand(this.game.automaton, 'revealdraw');
+        }
+        if(this.game.shootout) {
+            const drawCount = this.getDrawCount(this.game.automaton);
+            this.game.automaton.makeDrawHand(drawCount.number, drawCount.redraw);
+            this.game.automaton.drawHandSelected = true;
+        }     
+    }
+
+    canHandleSolo() {
+        return super.canHandleSolo() && this.game.automaton.getOpponent().drawHandSelected;
     }
 }
 

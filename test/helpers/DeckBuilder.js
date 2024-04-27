@@ -12,6 +12,7 @@ const DefaultDeck = [
     'Hustings', 'Hustings',
     'Blake Ranch', 'Blake Ranch',
     'Bunkhouse', 'Bunkhouse',
+    'Circle M Ranch', 'Circle M Ranch',
     'Mustang', 'Mustang',
     'Roan', 'Roan',
     'Shotgun', 'Shotgun',
@@ -50,6 +51,9 @@ class DeckBuilder {
         let params = Object.assign({ addDefaultDeck: true }, properties);
         if(params.addDefaultDeck) {
             params.cardTitles = params.cardTitles.concat(DefaultDeck);
+        }
+        if(params.cardCodes) {
+            params.cardTitles = params.cardTitles.concat(params.cardCodes);
         }
         let allCards = this.createCardCounts(params.cardTitles);
         let outfit = this.getCard(params.outfitTitle);

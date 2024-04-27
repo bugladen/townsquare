@@ -1,5 +1,9 @@
 const BaseCard = require('./basecard.js');
 const CardMatcher = require('./CardMatcher.js');
+const { ShootoutStatuses } = require('./Constants/index.js');
+const PhaseNames = require('./Constants/PhaseNames.js');
+const PlayingTypes = require('./Constants/PlayingTypes.js');
+const NullCard = require('./nullcard.js');
 const StandardActions = require('./PlayActions/StandardActions.js');
 const ReferenceConditionalSetProperty = require('./PropertyTypes/ReferenceConditionalSetProperty.js');
 
@@ -15,7 +19,10 @@ class DrawCard extends BaseCard {
         this.minCost = 0;
         this.difficultyMod = 0;
         this.currentControl = this.cardData.control || 0;
+        this.currentUpkeep = this.cardData.upkeep;
         this.permanentControl = 0;
+        this.permanentUpkeep = 0;
+        this.shootoutStatus = ShootoutStatuses.None;
         if(!this.hasKeyword('rowdy')) {
             this.controlDeterminator = 'influence:deed';
         } else {
@@ -25,6 +32,7 @@ class DrawCard extends BaseCard {
         if(cardData.starting) {
             this.starting = true;
         }       
+        this.attachmentLimits = []; // other than base ones for weapon, horse and attire
         
         this.actionPlacementLocation = 'discard pile';
         this.options = new ReferenceConditionalSetProperty();
@@ -72,6 +80,24 @@ class DrawCard extends BaseCard {
         }
     }
 
+    get upkeep() {
+        if(this.currentUpkeep < 0) {
+            return 0;
+        }
+        return this.currentUpkeep;
+    }
+
+    set upkeep(amount) {
+        this.currentUpkeep = amount;
+    }
+
+    get locationCard() {
+        if(this.isNotPlanted()) {
+            return new NullCard();
+        }
+        return super.locationCard;
+    }    
+
     modifyControl(amount, applying = true, fromEffect = false) {
         this.currentControl += amount;
         if(!fromEffect) {
@@ -86,6 +112,28 @@ class DrawCard extends BaseCard {
         this.game.raiseEvent('onCardControlChanged', params);
     }
 
+    modifyUpkeep(amount, applying = true, fromEffect = false) {
+        this.currentUpkeep += amount;
+        if(!fromEffect) {
+            this.permanentUpkeep += amount;
+        }
+
+        let params = {
+            card: this,
+            amount: amount,
+            applying: applying
+        };
+        this.game.raiseEvent('onCardUpkeepChanged', params);
+    }
+
+    removeAllControl() {
+        this.currentControl -= this.permanentControl;
+        this.permanentControl = 0;
+        this.game.effectEngine.getAllEffectsOnCard(this, effect => 
+            ['increaseControl', 'decreaseControl'].includes(effect.gameAction)).forEach(effect => effect.cancel());
+        this.control = 0;
+    }
+
     createSnapshot(clone, cloneBaseAttributes = true) {
         if(!clone) {
             clone = new DrawCard(this.owner, this.cardData);
@@ -95,6 +143,7 @@ class DrawCard extends BaseCard {
         clone.booted = this.booted;
         clone.parent = this.parent;
         clone.options = this.options;
+        clone.shootoutStatus = this.shootoutStatus;
 
         return clone;
     }
@@ -113,7 +162,7 @@ class DrawCard extends BaseCard {
                 if(this.getType() === 'action') {
                     return menu.concat(discardItem);
                 }
-                if(this.game.currentPhase === 'high noon') {
+                if(this.game.currentPhase === PhaseNames.HighNoon) {
                     menu = menu.concat({ method: 'playCard', text: 'Shoppin\' play', arg: 'shoppin' });
                 }
                 if(this.abilities.playActions.length > 0) {
@@ -221,20 +270,29 @@ class DrawCard extends BaseCard {
      */
     whileAttached(properties) {
         this.persistentEffect({
-            condition: () => !!this.parent && (!properties.condition || properties.condition()),
-            match: (card, context) => card === this.parent && (!properties.match || properties.match(card, context)),
+            condition: () => !!this.parent && (!this.isTotem() || !this.isNotPlanted()) && (!properties.condition || properties.condition()),
+            match: (card, context) => {
+                if(this.isTotem()) {
+                    if(card.uuid !== this.gamelocation) {
+                        return false;
+                    }
+                } else if(card.uuid !== this.parent.uuid) {
+                    return false;
+                }
+                return !properties.match || properties.match(card, context);
+            },
             targetController: 'any',
             effect: properties.effect,
             recalculateWhen: properties.recalculateWhen,
-            fromTrait: properties.fromTrait
+            fromTrait: properties.fromTrait === undefined ? true : properties.fromTrait
         });
     }
 
     clearBlank(type) {
         super.clearBlank(type);
         this.attachments.forEach(attachment => {
-            if(!this.canAttach(this.controller, attachment)) {
-                this.controller.discardCard(attachment, false);
+            if(!attachment.canAttach(this.controller, this)) {
+                this.controller.discardCard(attachment);
             }
         });
     }
@@ -260,13 +318,13 @@ class DrawCard extends BaseCard {
 
         // Do not check attachment restrictions if this is Improvement goods type. That is because the
         // restriction is checked only at the time it is being attached.
-        if(this.isImprovement() && playingType === 'validityCheck') {
+        if(this.isImprovement() && playingType === PlayingTypes.ValidityCheck) {
             return true;
         }
         
         let context = { player: player };
 
-        return !this.attachmentRestrictions || 
+        return !this.attachmentRestrictions || (this.isTotem() && card.canAttachTotems(this)) ||
             this.attachmentRestrictions.some(restriction => restriction(card, context));
     }
 
@@ -291,8 +349,15 @@ class DrawCard extends BaseCard {
     }
     
     getAttachmentsByKeywords(keywords) {
+        if(!this.attachments) {
+            return [];
+        }
+        let searchKeywords = keywords;
+        if(!Array.isArray(keywords)) {
+            searchKeywords = [keywords];
+        }
         return this.attachments.filter(attachment => {
-            for(let keyword of keywords) {
+            for(let keyword of searchKeywords) {
                 if(!attachment.hasKeyword(keyword)) {
                     return false;
                 }
@@ -302,11 +367,7 @@ class DrawCard extends BaseCard {
     }
 
     hasAttachmentWithKeywords(keywords) {
-        let searchKeywords = keywords;
-        if(!Array.isArray(keywords)) {
-            searchKeywords = [keywords];
-        }
-        return this.getAttachmentsByKeywords(searchKeywords).length > 0;
+        return this.getAttachmentsByKeywords(keywords).length > 0;
     }
 
     removeAttachment(attachment) {
@@ -318,6 +379,19 @@ class DrawCard extends BaseCard {
         attachment.parent = undefined;
     }
 
+    addAttachmentLimit(limitToAdd) {
+        const existingLimit = this.attachmentLimits.find(attLimit => attLimit.keyword === limitToAdd.keyword);
+        if(!existingLimit) {
+            this.attachmentLimits.push(limitToAdd);
+        } else {
+            existingLimit.limit = limitToAdd.limit;
+        }
+    }
+
+    removeAttachmentLimit(limitToRemove) {
+        this.attachmentLimits = this.attachmentLimits.filter(attLimit => attLimit.keyword !== limitToRemove.keyword);
+    }    
+
     getPlayActions(type) {
         if(type === 'shoppin') {
             return [StandardActions.shoppin(this)];
@@ -326,11 +400,22 @@ class DrawCard extends BaseCard {
             .concat(this.abilities.actions.filter(action => !action.allowMenu()));
     }
 
+    hasAbilityForType(abilityType, checkAttached = true) {
+        if(this.abilities.actions.some(action => action.playType.includes(abilityType))) {
+            return true;
+        }
+        if(!checkAttached) {
+            return false;
+        }
+        return this.attachments.some(att => att.abilities.actions.some(action => 
+            action.playType.includes('shootout') || action.playType.includes('resolution')));
+    }
+
     leavesPlay() {
         this.booted = false;
-        this.attachments.forEach(attachment => {
-            attachment.controller.moveCard(attachment, 'discard pile', { raiseEvents: false });
-        });
+        if(this.attachments.length) {
+            this.owner.discardCards(this.attachments, () => true, { isCardEffect: false });
+        }
         if(this.parent) {
             this.parent.removeAttachment(this);
         }
@@ -339,6 +424,8 @@ class DrawCard extends BaseCard {
         }
         this.control = this.currentControl - this.permanentControl;
         this.permanentControl = 0;
+        this.upkeep = this.currentUpkeep - this.permanentUpkeep;
+        this.permanentUpkeep = 0;
         super.leavesPlay();
     }
 
@@ -349,12 +436,33 @@ class DrawCard extends BaseCard {
         return this.game.isHome(this.gamelocation, this.controller);
     }
 
-    isAtDeed() {
+    /**
+     * Checks if card is at a deed, or specific type of deed depending on the
+     * parameter.
+     *
+     * @param {Object} deedType - type of deed that should be checked.\
+     * `any` (default) - Check if the card is at deed of any type.\
+     * `in-town` - check if the card is at in-town deed.\
+     * `out-town` - check if the card is at out of town deed.\
+     * @return {Boolean} - returns true if card is at specified type of deed, 
+     * false otherwise.
+     */
+    isAtDeed(deedType = 'any') {
         if(this.location !== 'play area') {
             return false;
         }
-        return this.locationCard && this.locationCard.getType() === 'deed';
-    }
+        const thisLocationCard = this.locationCard;
+        if(!thisLocationCard || thisLocationCard.getType() !== 'deed') {
+            return false;
+        }
+        if(deedType === 'in-town') {
+            return !thisLocationCard.isOutOfTown();
+        }
+        if(deedType === 'out-town') {
+            return thisLocationCard.isOutOfTown();
+        }
+        return true;     
+    }  
 
     isGadget() {
         return this.hasKeyword('Gadget');
@@ -384,6 +492,10 @@ class DrawCard extends BaseCard {
         return this.options.contains('isSelectedAsFirstCasualty', this);
     }
 
+    isNotPlanted() {
+        return this.options.contains('isNotPlanted', this);
+    }    
+
     calloutCannotBeRefused(opponentDude) {
         return this.options.contains('calloutCannotBeRefused', opponentDude);
     }
@@ -412,6 +524,14 @@ class DrawCard extends BaseCard {
         return this.options.contains('cannotFlee');
     }
 
+    cannotJoinPosse(posse) {
+        return this.options.contains('cannotJoinPosse', posse);
+    }
+    
+    cannotMakeCallout(targetDude) {
+        return this.options.contains('cannotMakeCallout', targetDude);
+    }    
+
     cannotAttachCards(attachment) {
         return this.options.contains('cannotAttachCards', attachment);
     }
@@ -426,7 +546,11 @@ class DrawCard extends BaseCard {
 
     canBeInventedWithoutBooting() {
         return this.options.contains('canBeInventedWithoutBooting');
-    }    
+    }
+    
+    canAttachTotems(totem) {
+        return this.options.contains('canAttachTotems', totem);
+    }
 
     canBeAced(context) {
         return this.allowGameAction('ace', context);
@@ -457,7 +581,8 @@ class DrawCard extends BaseCard {
                 return attachment.getSummary(activePlayer);
             }),
             booted: this.booted,
-            control: this.control
+            control: this.control,
+            shootoutStatus: this.shootoutStatus
         };
 
         if(baseSummary.facedown) {

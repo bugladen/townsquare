@@ -11,9 +11,12 @@ class NickelNightInn extends DeedCard {
                 activePromptTitle: 'Choose a dude to boot',
                 waitingPromptTitle: 'Waiting for opponent to choose a dude',
                 location: 'play area',
-                cardCondition: {condition: card => (card.gamelocation === this.gamelocation || card.isAdjacent(this.gamelocation)) && card.value <= 3},
+                cardCondition: {
+                    booted: false,
+                    condition: card => (card.gamelocation === this.gamelocation || card.isAdjacent(this.gamelocation)) && card.value <= 3
+                },
                 cardType: 'dude',
-                gameAction: 'bootDude'
+                gameAction: 'boot'
             },
             message: context => {
                 this.game.addMessage('{0} uses {1} to boot {2}', context.player, this, context.target);

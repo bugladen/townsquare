@@ -18,6 +18,7 @@ class Event {
         this.childEvents = [];
         this.attachedEvents = [];
         this.params = params;
+        this.handlerReplaced = false;
 
         this.assignParamProperties(params);
     }
@@ -49,15 +50,6 @@ class Event {
         }
     }
 
-    saveCard() {
-        if(!this.card || this.cancelled) {
-            return;
-        }
-
-        this.card.game.saveCard(this.card);
-        this.cancel();
-    }
-
     cancel() {
         this.cancelled = true;
 
@@ -72,6 +64,7 @@ class Event {
 
     replaceHandler(handler) {
         this.handler = handler;
+        this.handlerReplaced = true;
     }
 
     executeHandler() {

@@ -1,4 +1,5 @@
 const ActionCard = require('../../actioncard.js');
+const GameActions = require('../../GameActions/index.js');
 
 class Kidnappin extends ActionCard {
     setupCardAbilities(ability) {
@@ -15,11 +16,12 @@ class Kidnappin extends ActionCard {
                 job.leader.bullets + posseSelection.reduce((agg, dude) => agg + dude.bullets, 0) > job.mark.bullets,
             message: context =>
                 this.game.addMessage('{0} plays {1} on {2}', context.player, this, context.target),
-            handler: () => {
-                this.game.once('onLeaderPosseFormed', event => event.shootout.actOnLeaderPosse(dude => dude.increaseBounty()));
+            handler: context => {
+                this.game.once('onLeaderPosseFormed', event => event.shootout.actOnLeaderPosse(dude => 
+                    this.game.resolveGameAction(GameActions.addBounty({ card: dude }), context)));
             },
             onSuccess: (job, context) => {
-                if(this.game.discardFromPlay([job.mark], true, () => true, { isCardEffect: true }, context)) {
+                if(this.game.discardFromPlay([job.mark], () => true, { isCardEffect: true }, context)) {
                     this.game.addMessage('{0} was discarded as a result of the {1}', job.mark, this);
                 }
             }

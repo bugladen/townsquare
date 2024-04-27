@@ -11,10 +11,10 @@ class CharliesPlace extends DeedCard {
                 cardCondition: { 
                     location: 'play area', 
                     controller: 'any', 
-                    condition: card => card.locationCard === this &&
-                        (card.allowGameAction('increaseBullets') || card.allowGameAction('decreaseBullets'))
+                    condition: (card) => card.locationCard === this
                 },
-                cardType: ['dude']
+                cardType: ['dude'],
+                gameAction: { or: ['increaseBullets', 'decreaseBullets'] }
             },
             handler: context => {
                 this.abilityContext = context;
@@ -25,12 +25,12 @@ class CharliesPlace extends DeedCard {
                             { 
                                 text: 'Raise by 2', 
                                 method: 'raise',
-                                disabled: !this.abilityContext.target.allowGameAction('increaseBullets')
+                                disabled: !this.abilityContext.target.allowGameAction('increaseBullets', context)
                             },
                             { 
                                 text: 'Lower by 2', 
                                 method: 'lower',
-                                disabled: !this.abilityContext.target.allowGameAction('decreaseBullets')
+                                disabled: !this.abilityContext.target.allowGameAction('decreaseBullets', context)
                             }
                         ]
                     },

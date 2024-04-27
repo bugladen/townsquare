@@ -55,20 +55,22 @@ class GameServer {
         server.listen(process.env.PORT || config.socketioPort);
 
         var options = {
-            perMessageDeflate: false
+            perMessageDeflate: false,
+            cors: {
+                origin: true,
+                methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
+            }
         };
 
         if(process.env.NODE_ENV !== 'production') {
             options.path = '/' + (process.env.SERVER || config.nodeIdentity) + '/socket.io';
+        } else {
+            options.cors.origin = [/^http(s)?:\/\/(www\.)?doomtown\.online(:)?.*/, /^http(s)?:\/\/dev\.doomtown\.us:.*/];
         }
 
         this.io = socketio(server, options);
-        this.io.set('heartbeat timeout', 30000);
+        this.io.eio.pingTimeout = 30000;
         this.io.use(this.handshake.bind(this));
-
-        if(process.env.NODE_ENV === 'production') {
-            this.io.set('origins', 'http://www.doomtown.online:* https://www.doomtown.online:* http://dev.doomtown.us:* https://dev.doomtown.us:*');
-        }
 
         this.io.on('connection', this.onConnection.bind(this));
 
@@ -205,8 +207,8 @@ class GameServer {
         next();
     }
 
-    gameWon(game, reason, winner) {
-        this.zmqSocket.send('GAMEWIN', { game: game.getSaveState(), winner: winner.name, reason: reason });
+    gameWon(game) {
+        this.zmqSocket.send('GAMEWIN', { game: game.getSaveState() });
     }
 
     rematch(game) {
@@ -235,6 +237,9 @@ class GameServer {
         game.started = true;
         for(let player of Object.values(pendingGame.players)) {
             game.selectDeck(player.name, player.deck);
+        }
+        if(game.gameType === 'solo') {
+            game.selectDeckForAutomaton(pendingGame.soloPlayer.deck);
         }
 
         game.initialise();
@@ -291,8 +296,10 @@ class GameServer {
         }
 
         for(let player of Object.values(game.getPlayersAndSpectators())) {
-            player.socket.send('cleargamestate');
-            player.socket.leaveChannel(game.id);
+            if(player.socket) {
+                player.socket.send('cleargamestate');
+                player.socket.leaveChannel(game.id);
+            }
         }
 
         delete this.games[gameId];
