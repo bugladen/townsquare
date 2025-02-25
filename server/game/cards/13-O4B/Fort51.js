@@ -11,7 +11,7 @@ class Fort51 extends OutfitCard {
                 context.ability.selectAnotherTarget(context.player, context, {
                     activePromptTitle: 'Select a dude',
                     waitingPromptTitle: 'Waiting for opponent to select dude',
-                    cardCondition: card => card.location === 'play area' && card.controller !== this.controller && card.influence < context.event.gadget.cost,
+                    cardCondition: card => card.location === 'play area' && card.controller !== this.controller && card.influence <= context.event.gadget.cost,
                     cardType: 'dude',
                     gameAction: 'addBounty',
                     onSelect: (player, card) => {
